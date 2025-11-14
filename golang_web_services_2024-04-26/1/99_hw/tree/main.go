@@ -1,66 +1,105 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"os"
+	"sort"
 )
 
-const MAX_DEEP_LEVEL = 5
+const FILE_PREFIX = "├───"
+const FILE_LAST_PREFIX = "└───"
+const INDENT_SYMBOL = "\t"
+const FOLDER_CONNECTION = "│"
 
-func buildTree(path string, level int, parentPrefix string) (string, error) {
-	if level == MAX_DEEP_LEVEL {
-		return "", nil
+func fileFilterDirs(dirs []os.DirEntry, isIncludeFiles bool) []os.DirEntry {
+	if isIncludeFiles {
+		return dirs
 	}
+
+	filtered := make([]os.DirEntry, 0, len(dirs))
+
+	for _, dir := range dirs {
+		if dir.IsDir() {
+			filtered = append(filtered, dir)
+		}
+	}
+
+	return filtered
+}
+
+func buildTree(path string, level int, parentPrefix string, isPrintFiles bool) (string, error) {
 
 	var indentString string
 
-	d, err := os.ReadDir(path)
+	dirs, err := os.ReadDir(path)
 
 	if err != nil {
 		return "", err
 	}
-	subDirsCount := len(d)
 
-	for i := 0; i < subDirsCount; i++ {
+	dirs = fileFilterDirs(dirs, isPrintFiles)
 
-		var prefix string
-		var folderConnection string
+	sort.Slice(dirs, func(i, j int) bool {
+		return dirs[i].Name() < dirs[j].Name()
+	})
 
-		f := d[i]
-
-		if subDirsCount-i-1 == 0 {
-			prefix = "└───"
-		} else {
-			prefix = "├───"
-			folderConnection = "│"
+	for i, dir := range dirs {
+		if !isPrintFiles && !dir.IsDir() {
+			continue
 		}
 
-		name := f.Name()
+		currentPrefix := parentPrefix
 
-		if f.IsDir() {
-			indentString += parentPrefix + prefix + name + "\n"
-			subDirPath := path + "/" + name
-			subPrefix := "\t" + folderConnection + parentPrefix
+		if i == len(dirs)-1 {
+			currentPrefix += FILE_LAST_PREFIX
+		} else {
+			currentPrefix += FILE_PREFIX
+		}
 
-			deep, err := buildTree(subDirPath, level+1, subPrefix)
+		indentString += currentPrefix + dir.Name()
 
-			if err != nil {
-				return "", nil
+		if dir.IsDir() {
+			currentFolderConnection := ""
+			subDirPath := path + string(os.PathSeparator) + dir.Name()
+
+			if i != len(dirs)-1 {
+				currentFolderConnection = FOLDER_CONNECTION
 			}
 
-			indentString += deep
+			subDirPrefix := parentPrefix + currentFolderConnection + INDENT_SYMBOL
+			subDirTree, err := buildTree(subDirPath, level+1, subDirPrefix, isPrintFiles)
+
+			if err != nil {
+				return "", err
+			}
+
+			indentString += "\n" + subDirTree
+		} else {
+			info, err := dir.Info()
+
+			if err != nil {
+				return "", err
+			}
+
+			fileSize := info.Size()
+			sizeString := ""
+
+			if fileSize > 0 {
+				sizeString = fmt.Sprintf(" (%db)", info.Size())
+			} else {
+				sizeString = " (empty)"
+			}
+
+			indentString += sizeString + "\n"
 		}
 	}
 
 	return indentString, nil
 }
 
-func dirTree(out io.Writer, path string, withFiles bool) error {
-	//fmt.Fprint(out, path, withFiles)
-
-	tree, err := buildTree(path, 0, "")
+func dirTree(out io.Writer, path string, isPrintFiles bool) error {
+	tree, err := buildTree(path, 0, "", isPrintFiles)
 
 	if err != nil {
 		return err
@@ -71,7 +110,7 @@ func dirTree(out io.Writer, path string, withFiles bool) error {
 	return nil
 }
 
-func _main() {
+func main() {
 	out := os.Stdout
 
 	if !(len(os.Args) == 2 || len(os.Args) == 3) {
@@ -79,19 +118,11 @@ func _main() {
 	}
 
 	path := os.Args[1]
-	printFiles := len(os.Args) == 3 && os.Args[2] == "-f"
+	isPrintFiles := len(os.Args) == 3 && os.Args[2] == "-f"
 
-	err := dirTree(out, path, printFiles)
+	err := dirTree(out, path, isPrintFiles)
 
 	if err != nil {
 		panic(err.Error())
 	}
-}
-
-func main() {
-	r := bytes.NewReader([]byte("Hello world!"))
-	r.Read([]byte("Hi"))
-	res, _ := r.ReadByte()
-
-	fmt.Println(string(res))
 }
