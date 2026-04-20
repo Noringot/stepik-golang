@@ -1,12 +1,21 @@
 package main
 
 import (
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 )
+
+const defaultOrderField = "Name"
+
+var allowedOrderField = []string{"Id", "Age", "Name"}
 
 type Row struct {
 	Id            int32  `xml:"id"`
@@ -18,6 +27,7 @@ type Row struct {
 	EyeColor      string `xml:"eyeColor"`
 	FirstName     string `xml:"first_name"`
 	LastName      string `xml:"last_name"`
+	Name          string
 	Gender        string `xml:"gender"`
 	Company       string `xml:"company"`
 	Email         string `xml:"email"`
@@ -28,7 +38,7 @@ type Row struct {
 	FavoriteFruit string `xml:"favoriteFruit"`
 }
 
-func (r *Row) IsNameContain(value string) bool {
+func (r *Row) IsNameOrAboutContain(value string) bool {
 	if value == "" {
 		return false
 	}
@@ -36,11 +46,43 @@ func (r *Row) IsNameContain(value string) bool {
 	return strings.Contains(r.FirstName, value) || strings.Contains(r.LastName, value)
 }
 
-func SearchServer() {
+func _SearchServer(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query().Get("query")
+	orderField := r.URL.Query().Get("order_field")
+	orderBy := r.URL.Query().Get("order_by")
+	limit := r.URL.Query().Get("limit")
+	offset := r.URL.Query().Get("offset")
+
+	_, err := strconv.Atoi(offset)
+
+	if err != nil {
+		http.Error(w, "cannot get offset as int", http.StatusBadRequest)
+	}
+
+	fmt.Println(query, orderField, orderBy, limit, offset)
+}
+
+// query, orderField string, orderBy, limit, offset int
+func SearchServer(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query().Get("query")
+	offset := r.URL.Query().Get("offset")
+	lim := r.URL.Query().Get("limit")
+	orderField := r.URL.Query().Get("order_field")
+	orderByUrl := r.URL.Query().Get("order_by")
+
+	if orderField == "" {
+		orderField = defaultOrderField
+	}
+
+	if !slices.Contains(allowedOrderField, orderField) {
+		http.Error(w, ErrorBadOrderField, http.StatusBadRequest)
+	}
+
+	fmt.Printf("query: %s,\noffset: %s,\nlim: %s,\norderField: %s,\norderByUrl: %s", query, offset, lim, orderField, orderByUrl)
+
+	return
+
 	file, err := os.Open("test.xml")
-	var findName string
-	var findAbout string
-	findName = "L"
 
 	if err != nil {
 		panic(err)
@@ -49,6 +91,30 @@ func SearchServer() {
 	d := xml.NewDecoder(file)
 	rows := make([]Row, 0, 2)
 
+	handled := 0
+	toSkip, err := strconv.Atoi(offset)
+
+	if err != nil {
+		http.Error(w, "cannot get offset as int", http.StatusBadRequest)
+		return
+	}
+
+	limit, err := strconv.Atoi(lim)
+
+	if err != nil {
+		http.Error(w, "cannot get limit as int", http.StatusBadRequest)
+		return
+	}
+
+	orderBy, err := strconv.Atoi(orderByUrl)
+
+	if err != nil {
+		http.Error(w, "cannot get orderBy as int", http.StatusBadRequest)
+		return
+	}
+
+	fmt.Printf("query: %s\norderField: %s\norderBy: %s\nlimit: %s\noffset: %s\n", query, orderField, orderByUrl, offset, lim)
+XML:
 	for {
 		token, tokenErr := d.Token()
 
@@ -67,12 +133,23 @@ func SearchServer() {
 		case xml.StartElement:
 			if tok.Name.Local == "row" {
 				decodeErr = d.DecodeElement(row, &tok)
-				isRowCorrect := false
-				if row.IsNameContain(findName) {
+				isRowCorrect := true
+				if query != "" {
+					isRowCorrect = row.IsNameOrAboutContain(query)
 				}
 
 				if isRowCorrect {
-					rows = append(rows, *row)
+					if toSkip > 0 {
+						toSkip--
+					} else {
+						if handled >= limit {
+							break XML
+						}
+
+						row.Name = row.FirstName + " " + row.LastName
+						rows = append(rows, *row)
+						handled++
+					}
 				}
 			}
 		}
@@ -82,9 +159,49 @@ func SearchServer() {
 		}
 	}
 
-	fmt.Println(len(rows))
+	sort.Slice(rows, func(i, j int) bool {
+		switch orderField {
+		case "id":
+			if orderBy == 1 {
+				return rows[i].Id > rows[j].Id
+			} else {
+				return rows[i].Id < rows[j].Id
+			}
+		case "age":
+			if orderBy == 1 {
+				return rows[i].Age > rows[j].Age
+			} else {
+				return rows[i].Age < rows[j].Age
+			}
+		case "name", "":
+			if orderBy == 1 {
+				return rows[i].Name > rows[j].Name
+			} else {
+				return rows[i].Name < rows[j].Name
+			}
+		default:
+			return false
+		}
+	})
+
+	res, err := json.Marshal(rows)
+
+	if err != nil {
+		http.Error(w, "cannot pack result into json", http.StatusInternalServerError)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(res)
 }
 
 func main() {
-	SearchServer()
+	http.HandleFunc("/search", SearchServer)
+	err := http.ListenAndServe(":8080", nil)
+
+	if err != nil {
+		panic(err)
+	}
+	// res, _ := SearchServer("", "id", -1, 4, 1)
+
+	// PrintResult(*res)
 }

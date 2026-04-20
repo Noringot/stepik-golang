@@ -40,4 +40,44 @@
     <registered>2016-11-20T04:40:07 -03:00</registered>
     <favoriteFruit>banana</favoriteFruit>
   </row>
+  <row>
+    <id>3</id>
+    <guid>c472acb3-3fee-4177-960f-ea133195d594</guid>
+    <isActive>false</isActive>
+    <balance>$2,960.95</balance>
+    <picture>http://placehold.it/32x32</picture>
+    <age>27</age>
+    <eyeColor>blue</eyeColor>
+    <first_name>Everett</first_name>
+    <last_name>Dillard</last_name>
+    <gender>male</gender>
+    <company>LYRIA</company>
+    <email>everettdillard@lyria.com</email>
+    <phone>+1 (991) 418-2856</phone>
+    <address>480 Morgan Avenue, Kansas, Pennsylvania, 9303</address>
+    <about>Sint eu id sint irure officia amet cillum. Amet consectetur enim mollit culpa laborum ipsum adipisicing est laboris. Adipisicing fugiat esse dolore aliquip quis laborum aliquip dolore. Pariatur do elit eu nostrud occaecat.
+</about>
+    <registered>2015-10-02T08:16:01 -03:00</registered>
+    <favoriteFruit>strawberry</favoriteFruit>
+  </row>
+  <row>
+    <id>4</id>
+    <guid>bb040af8-5c6b-4e98-b6e1-ee6b73ea5c1f</guid>
+    <isActive>true</isActive>
+    <balance>$3,970.65</balance>
+    <picture>http://placehold.it/32x32</picture>
+    <age>30</age>
+    <eyeColor>blue</eyeColor>
+    <first_name>Owen</first_name>
+    <last_name>Lynn</last_name>
+    <gender>male</gender>
+    <company>COMDOM</company>
+    <email>owenlynn@comdom.com</email>
+    <phone>+1 (969) 439-3901</phone>
+    <address>131 Moffat Street, Winfred, Delaware, 8183</address>
+    <about>Elit anim elit eu et deserunt veniam laborum commodo irure nisi ut labore reprehenderit fugiat. Ipsum adipisicing labore ullamco occaecat ut. Ea deserunt ad dolor eiusmod aute non enim adipisicing sit ullamco est ullamco. Elit in proident pariatur elit ullamco quis. Exercitation amet nisi fugiat voluptate esse sit et consequat sit pariatur labore et.
+</about>
+    <registered>2014-04-08T11:53:21 -03:00</registered>
+    <favoriteFruit>banana</favoriteFruit>
+  </row>
 </root>
